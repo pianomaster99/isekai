@@ -62,12 +62,13 @@ class AliceLLMEngine:
         messages.extend(history)
         messages.append({"role": "user", "content": player_message})
 
-        input_ids = self._tokenizer.apply_chat_template(
+        tokenized = self._tokenizer.apply_chat_template(
             messages,
             tokenize=True,
             return_tensors="pt",
             add_generation_prompt=True,
         )
+        input_ids = getattr(tokenized, "input_ids", tokenized)
 
         generate_kwargs = {
             "max_new_tokens": config.max_new_tokens,
