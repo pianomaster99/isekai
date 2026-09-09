@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+.env.*
+output.png
+*.safetensors
+alice-in-the-dark-1b/
+opt-350m-erebus/
+qwen3-1.7b/
+anime-kawai-diffusion/
+models/
