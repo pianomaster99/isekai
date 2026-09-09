@@ -2,6 +2,3 @@ transformers
 torch
 diffusers
 llama-cpp-python
-fastapi
-uvicorn
-pydantic
