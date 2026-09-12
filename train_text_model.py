@@ -10,6 +10,17 @@ from torch.utils.data import Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
 
 
+def apply_chat_template_no_thinking(tokenizer, messages, **kwargs):
+    try:
+        return tokenizer.apply_chat_template(
+            messages,
+            enable_thinking=False,
+            **kwargs,
+        )
+    except TypeError:
+        return tokenizer.apply_chat_template(messages, **kwargs)
+
+
 class ChatSftDataset(Dataset):
     def __init__(self, path: str, tokenizer, max_length: int):
         self.examples: List[Dict[str, torch.Tensor]] = []
@@ -22,7 +33,8 @@ class ChatSftDataset(Dataset):
                 if not isinstance(messages, list):
                     raise ValueError(f"{path}:{line_number} must contain a messages list")
 
-                tokenized = tokenizer.apply_chat_template(
+                tokenized = apply_chat_template_no_thinking(
+                    tokenizer,
                     messages,
                     tokenize=True,
                     add_generation_prompt=False,

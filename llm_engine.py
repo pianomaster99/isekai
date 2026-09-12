@@ -1,3 +1,4 @@
+import importlib.metadata
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
@@ -14,6 +15,45 @@ except ImportError:
 
 
 ChatMessage = Dict[str, str]
+
+
+def disable_incompatible_torchao() -> None:
+    try:
+        version = importlib.metadata.version("torchao")
+    except importlib.metadata.PackageNotFoundError:
+        return
+
+    version_parts = tuple(int(part) for part in version.split(".")[:2] if part.isdigit())
+    if version_parts >= (0, 16):
+        return
+
+    import peft.import_utils as peft_import_utils
+
+    peft_import_utils.is_torchao_available = lambda: False
+    try:
+        import peft.tuners.lora.torchao as peft_lora_torchao
+
+        peft_lora_torchao.is_torchao_available = lambda: False
+    except Exception:
+        pass
+
+
+
+def apply_chat_template_no_thinking(tokenizer, messages, **kwargs):
+    try:
+        return tokenizer.apply_chat_template(
+            messages,
+            enable_thinking=False,
+            **kwargs,
+        )
+    except TypeError:
+        return tokenizer.apply_chat_template(messages, **kwargs)
+
+
+def strip_thinking_text(text: str) -> str:
+    if "</think>" in text:
+        text = text.split("</think>", 1)[1]
+    return text.replace("<think>", "").strip()
 
 
 @dataclass
@@ -64,6 +104,7 @@ class AliceLLMEngine:
             if self._tokenizer.pad_token is None:
                 self._tokenizer.pad_token = self._tokenizer.eos_token
 
+            disable_incompatible_torchao()
             model_kwargs = {"trust_remote_code": True}
             adapter_path = Path(self.adapter_path) if self.adapter_path else None
             if adapter_path and (adapter_path / "adapter_config.json").exists():
@@ -103,7 +144,8 @@ class AliceLLMEngine:
         messages.extend(history)
         messages.append({"role": "user", "content": player_message})
 
-        tokenized = self._tokenizer.apply_chat_template(
+        tokenized = apply_chat_template_no_thinking(
+            self._tokenizer,
             messages,
             tokenize=True,
             return_tensors="pt",
@@ -130,4 +172,4 @@ class AliceLLMEngine:
             skip_special_tokens=True,
             clean_up_tokenization_spaces=False,
         )
-        return text.strip()
+        return strip_thinking_text(text)

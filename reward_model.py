@@ -1,4 +1,5 @@
 import random
+import importlib.metadata
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -11,6 +12,28 @@ except ImportError:
     PeftModel = None
 
 from llm_engine import ChatMessage, ConversationSession
+
+
+def disable_incompatible_torchao() -> None:
+    try:
+        version = importlib.metadata.version("torchao")
+    except importlib.metadata.PackageNotFoundError:
+        return
+
+    version_parts = tuple(int(part) for part in version.split(".")[:2] if part.isdigit())
+    if version_parts >= (0, 16):
+        return
+
+    import peft.import_utils as peft_import_utils
+
+    peft_import_utils.is_torchao_available = lambda: False
+    try:
+        import peft.tuners.lora.torchao as peft_lora_torchao
+
+        peft_lora_torchao.is_torchao_available = lambda: False
+    except Exception:
+        pass
+
 
 
 @dataclass
@@ -77,6 +100,7 @@ class TrainedRewardModel:
         if self._tokenizer.pad_token is None:
             self._tokenizer.pad_token = self._tokenizer.eos_token
 
+        disable_incompatible_torchao()
         dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else None
         self._model = AutoModelForSequenceClassification.from_pretrained(
             self.model_path,
