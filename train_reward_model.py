@@ -134,7 +134,7 @@ def validate_jsonl(path: str) -> int:
 def parse_args():
     parser = argparse.ArgumentParser(description="Train the Rowan reward/score model with LoRA regression.")
     parser.add_argument("--model-path", default=LOCAL_QWEN_MODEL)
-    parser.add_argument("--train-file", default="datasets/rowan_ashford_reward_demo.jsonl")
+    parser.add_argument("--train-file", default="datasets/rowan_ashford_reward_all.jsonl")
     parser.add_argument("--output-dir", default="./models/rowan-qwen3-1.7b-reward")
     parser.add_argument("--max-length", type=int, default=1536)
     parser.add_argument("--epochs", type=float, default=5.0)

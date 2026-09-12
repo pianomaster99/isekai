@@ -7,9 +7,10 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 try:
-    from peft import AutoPeftModelForCausalLM
+    from peft import AutoPeftModelForCausalLM, PeftModel
 except ImportError:
     AutoPeftModelForCausalLM = None
+    PeftModel = None
 
 
 ChatMessage = Dict[str, str]
@@ -36,8 +37,13 @@ class ConversationSession:
 
 
 class AliceLLMEngine:
-    def __init__(self, model_path: str = "./qwen3-1.7b"):
+    def __init__(
+        self,
+        model_path: str = "./qwen3-1.7b",
+        adapter_path: Optional[str] = None,
+    ):
         self.model_path = model_path
+        self.adapter_path = adapter_path
         self._model = None
         self._tokenizer = None
         self._lock = Lock()
@@ -50,15 +56,25 @@ class AliceLLMEngine:
             if self._model is not None and self._tokenizer is not None:
                 return
 
+            tokenizer_path = self.adapter_path or self.model_path
             self._tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path,
+                tokenizer_path,
                 trust_remote_code=True,
             )
             if self._tokenizer.pad_token is None:
                 self._tokenizer.pad_token = self._tokenizer.eos_token
 
             model_kwargs = {"trust_remote_code": True}
-            if AutoPeftModelForCausalLM is not None and (
+            adapter_path = Path(self.adapter_path) if self.adapter_path else None
+            if adapter_path and (adapter_path / "adapter_config.json").exists():
+                if PeftModel is None:
+                    raise ImportError("Install peft to load a text-generation adapter")
+                base_model = AutoModelForCausalLM.from_pretrained(
+                    self.model_path,
+                    **model_kwargs,
+                )
+                self._model = PeftModel.from_pretrained(base_model, self.adapter_path)
+            elif AutoPeftModelForCausalLM is not None and (
                 Path(self.model_path) / "adapter_config.json"
             ).exists():
                 self._model = AutoPeftModelForCausalLM.from_pretrained(
@@ -93,7 +109,7 @@ class AliceLLMEngine:
             return_tensors="pt",
             add_generation_prompt=True,
         )
-        input_ids = getattr(tokenized, "input_ids", tokenized)
+        input_ids = getattr(tokenized, "input_ids", tokenized).to(self._model.device)
 
         generate_kwargs = {
             "max_new_tokens": config.max_new_tokens,

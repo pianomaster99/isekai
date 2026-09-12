@@ -46,8 +46,8 @@ print(turn["score"], turn["passed"])
 
 The Rowan scene is organized in `scene.md`. Two demo datasets were generated from it:
 
-- `datasets/rowan_ashford_sft.jsonl`: chat SFT examples for Rowan text generation.
-- `datasets/rowan_ashford_reward_demo.jsonl`: scalar reward examples with normalized scores.
+- `datasets/rowan_ashford_sft_all.jsonl`: merged chat SFT examples for Rowan text generation.
+- `datasets/rowan_ashford_reward_all.jsonl`: merged scalar reward examples with normalized scores.
 
 Train the text-generation adapter:
 
@@ -61,15 +61,17 @@ Train the reward/score adapter:
 python train_reward_model.py
 ```
 
-Use the trained adapters from game code:
+Use the trained adapters from game code. The game API can choose text and scoring models independently:
 
 ```python
 from game_api import GameNpcEngine
 
 engine = GameNpcEngine(
-    model_path="./models/rowan-qwen3-1.7b-sft",
-    reward_model_path="./models/rowan-qwen3-1.7b-reward",
+    text_model_path="./qwen3-1.7b",
+    text_adapter_path="./models/rowan-qwen3-1.7b-sft",
+    scorer="trained",
     reward_base_model_path="./qwen3-1.7b",
+    reward_model_path="./models/rowan-qwen3-1.7b-reward",
 )
 ```
 

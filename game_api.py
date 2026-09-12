@@ -10,20 +10,49 @@ class GameNpcEngine:
 
     def __init__(
         self,
-        model_path: str = "./qwen3-1.7b",
+        model_path: Optional[str] = None,
         reward_seed: Optional[int] = None,
         reward_model_path: Optional[str] = None,
         reward_base_model_path: str = "./qwen3-1.7b",
+        text_model_path: str = "./qwen3-1.7b",
+        text_adapter_path: Optional[str] = None,
+        scorer: str = "random",
     ):
-        self.llm = AliceLLMEngine(model_path=model_path)
-        if reward_model_path:
+        if model_path is not None:
+            text_model_path = model_path
+
+        self.text_model_path = text_model_path
+        self.text_adapter_path = text_adapter_path
+        self.reward_base_model_path = reward_base_model_path
+        self.reward_model_path = reward_model_path
+        self.scorer = "trained" if reward_model_path and scorer == "random" else scorer
+
+        self.llm = AliceLLMEngine(
+            model_path=self.text_model_path,
+            adapter_path=self.text_adapter_path,
+        )
+        if self.scorer == "trained":
+            if not self.reward_model_path:
+                raise ValueError("reward_model_path is required when scorer='trained'")
             self.reward_model = TrainedRewardModel(
-                model_path=reward_base_model_path,
-                adapter_path=reward_model_path,
+                model_path=self.reward_base_model_path,
+                adapter_path=self.reward_model_path,
             )
-        else:
+        elif self.scorer == "random":
             self.reward_model = RandomRewardModel(seed=reward_seed)
+        else:
+            raise ValueError("scorer must be 'random' or 'trained'")
+
         self.sessions: Dict[str, ConversationSession] = {}
+
+    def model_config(self) -> Dict:
+        return {
+            "text_model_path": self.text_model_path,
+            "text_adapter_path": self.text_adapter_path,
+            "scorer": self.scorer,
+            "reward_base_model_path": self.reward_base_model_path,
+            "reward_model_path": self.reward_model_path,
+        }
 
     def create_level(
         self,
