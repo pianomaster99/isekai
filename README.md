@@ -61,7 +61,13 @@ Train the reward/score adapter:
 python train_reward_model.py
 ```
 
-Use the trained adapters from game code. The game API can choose text and scoring models independently:
+The old constructor style still works for the base text model:
+
+```python
+engine = GameNpcEngine(model_path="./qwen3-1.7b")
+```
+
+Use the trained adapters from game code. The API can choose text and scoring models independently:
 
 ```python
 from game_api import GameNpcEngine
@@ -74,6 +80,24 @@ engine = GameNpcEngine(
     reward_model_path="./models/rowan-qwen3-1.7b-reward",
 )
 ```
+
+## Trained Model Files
+
+The trained adapters are expected at:
+
+- `models/rowan-qwen3-1.7b-sft`
+- `models/rowan-qwen3-1.7b-reward`
+
+If adapters are pushed to GitHub with Git LFS, the game dev should install Git LFS before cloning or pulling:
+
+```bash
+git lfs install
+git clone https://github.com/pianomaster99/isekai.git
+cd isekai
+git lfs pull
+```
+
+Large model folders such as `qwen3-1.7b/` remain ignored. The committed model files should be the small LoRA adapter outputs, not the full base model.
 
 ## Public Functions
 
