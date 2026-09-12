@@ -1,4 +1,5 @@
 import argparse
+import importlib.metadata
 import json
 from pathlib import Path
 from typing import Dict, List
@@ -61,6 +62,28 @@ def collate_batch(batch, pad_token_id: int):
 
 HF_QWEN_MODEL = "Qwen/Qwen3-1.7B"
 LOCAL_QWEN_MODEL = "./qwen3-1.7b"
+
+
+def disable_incompatible_torchao() -> None:
+    try:
+        version = importlib.metadata.version("torchao")
+    except importlib.metadata.PackageNotFoundError:
+        return
+
+    version_parts = tuple(int(part) for part in version.split(".")[:2] if part.isdigit())
+    if version_parts >= (0, 16):
+        return
+
+    import peft.import_utils as peft_import_utils
+
+    peft_import_utils.is_torchao_available = lambda: False
+    try:
+        import peft.tuners.lora.torchao as peft_lora_torchao
+
+        peft_lora_torchao.is_torchao_available = lambda: False
+    except Exception:
+        pass
+    print(f"Disabled incompatible torchao {version}; LoRA training does not need torchao.")
 
 
 def resolve_model_path(model_path: str) -> str:
@@ -131,6 +154,7 @@ def main():
     model.config.pad_token_id = tokenizer.pad_token_id
     model.enable_input_require_grads()
 
+    disable_incompatible_torchao()
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         r=args.lora_r,
