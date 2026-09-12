@@ -77,9 +77,40 @@ def collate_batch(batch, pad_token_id: int):
     }
 
 
+HF_QWEN_MODEL = "Qwen/Qwen3-1.7B"
+LOCAL_QWEN_MODEL = "./qwen3-1.7b"
+
+
+def resolve_model_path(model_path: str) -> str:
+    if model_path == LOCAL_QWEN_MODEL and not Path(model_path).exists():
+        return HF_QWEN_MODEL
+    return model_path
+
+
+def validate_jsonl(path: str) -> int:
+    count = 0
+    with Path(path).open() as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            item = json.loads(line)
+            if not isinstance(item, dict):
+                raise ValueError(f"{path}:{line_number} must be a JSON object")
+            for key in ("player_message", "npc_reply", "score"):
+                if key not in item:
+                    raise ValueError(f"{path}:{line_number} missing {key}")
+            score = float(item["score"])
+            if score < 0.0 or score > 1.0:
+                raise ValueError(f"{path}:{line_number} score must be in [0, 1]")
+            count += 1
+    if count == 0:
+        raise ValueError(f"No examples found in {path}")
+    return count
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Train the Rowan reward/score model with LoRA regression.")
-    parser.add_argument("--model-path", default="./qwen3-1.7b")
+    parser.add_argument("--model-path", default=LOCAL_QWEN_MODEL)
     parser.add_argument("--train-file", default="datasets/rowan_ashford_reward_demo.jsonl")
     parser.add_argument("--output-dir", default="./models/rowan-qwen3-1.7b-reward")
     parser.add_argument("--max-length", type=int, default=1536)
@@ -90,11 +121,19 @@ def parse_args():
     parser.add_argument("--lora-r", type=int, default=16)
     parser.add_argument("--lora-alpha", type=int, default=32)
     parser.add_argument("--lora-dropout", type=float, default=0.05)
+    parser.add_argument("--validate-data-only", action="store_true")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    if args.validate_data_only:
+        count = validate_jsonl(args.train_file)
+        print(f"validated {count} examples from {args.train_file}")
+        return
+
+    args.model_path = resolve_model_path(args.model_path)
+    print(f"Loading base model: {args.model_path}")
     tokenizer = AutoTokenizer.from_pretrained(args.model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
