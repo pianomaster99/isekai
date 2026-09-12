@@ -2,7 +2,7 @@
 
 Function-call API for game levels where a player talks to an NPC and passes when an internal reward score reaches a threshold.
 
-The current implementation uses the local `./alice-in-the-dark-1b` model for NPC text generation. The reward model is intentionally random for now, but it already has a clean boundary for swapping in a trained scorer later.
+The current implementation defaults to the local `./qwen3-1.7b` model for NPC text generation. The reward model can still run as a random placeholder, or load a trained LoRA reward adapter after `train_reward_model.py` finishes.
 
 ## Setup
 
@@ -17,7 +17,7 @@ pip install -r requirements.txt
 ```python
 from game_api import GameNpcEngine
 
-engine = GameNpcEngine(model_path="./alice-in-the-dark-1b")
+engine = GameNpcEngine(model_path="./qwen3-1.7b")
 
 level = engine.create_level(
     npc_system_prompt=(
@@ -39,6 +39,38 @@ turn = engine.send_player_message(
 
 print(turn["npc_reply"])
 print(turn["score"], turn["passed"])
+```
+
+
+## Rowan Demo Training
+
+The Rowan scene is organized in `scene.md`. Two demo datasets were generated from it:
+
+- `datasets/rowan_ashford_sft.jsonl`: chat SFT examples for Rowan text generation.
+- `datasets/rowan_ashford_reward_demo.jsonl`: scalar reward examples with normalized scores.
+
+Train the text-generation adapter:
+
+```bash
+python train_text_model.py
+```
+
+Train the reward/score adapter:
+
+```bash
+python train_reward_model.py
+```
+
+Use the trained adapters from game code:
+
+```python
+from game_api import GameNpcEngine
+
+engine = GameNpcEngine(
+    model_path="./models/rowan-qwen3-1.7b-sft",
+    reward_model_path="./models/rowan-qwen3-1.7b-reward",
+    reward_base_model_path="./qwen3-1.7b",
+)
 ```
 
 ## Public Functions

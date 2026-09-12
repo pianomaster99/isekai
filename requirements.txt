@@ -2,3 +2,5 @@ transformers
 torch
 diffusers
 llama-cpp-python
+peft
+accelerate

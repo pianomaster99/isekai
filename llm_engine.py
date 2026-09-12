@@ -1,9 +1,15 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Optional
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+try:
+    from peft import AutoPeftModelForCausalLM
+except ImportError:
+    AutoPeftModelForCausalLM = None
 
 
 ChatMessage = Dict[str, str]
@@ -30,7 +36,7 @@ class ConversationSession:
 
 
 class AliceLLMEngine:
-    def __init__(self, model_path: str = "./alice-in-the-dark-1b"):
+    def __init__(self, model_path: str = "./qwen3-1.7b"):
         self.model_path = model_path
         self._model = None
         self._tokenizer = None
@@ -44,8 +50,27 @@ class AliceLLMEngine:
             if self._model is not None and self._tokenizer is not None:
                 return
 
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_path)
-            self._model = AutoModelForCausalLM.from_pretrained(self.model_path)
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                self.model_path,
+                trust_remote_code=True,
+            )
+            if self._tokenizer.pad_token is None:
+                self._tokenizer.pad_token = self._tokenizer.eos_token
+
+            model_kwargs = {"trust_remote_code": True}
+            if AutoPeftModelForCausalLM is not None and (
+                Path(self.model_path) / "adapter_config.json"
+            ).exists():
+                self._model = AutoPeftModelForCausalLM.from_pretrained(
+                    self.model_path,
+                    **model_kwargs,
+                )
+            else:
+                self._model = AutoModelForCausalLM.from_pretrained(
+                    self.model_path,
+                    **model_kwargs,
+                )
+            self._model.config.pad_token_id = self._tokenizer.pad_token_id
             self._model.eval()
 
     def generate(

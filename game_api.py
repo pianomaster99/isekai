@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 from uuid import uuid4
 
 from llm_engine import AliceLLMEngine, ChatMessage, ConversationSession, GenerationConfig
-from reward_model import RandomRewardModel
+from reward_model import RandomRewardModel, TrainedRewardModel
 
 
 class GameNpcEngine:
@@ -10,11 +10,19 @@ class GameNpcEngine:
 
     def __init__(
         self,
-        model_path: str = "./alice-in-the-dark-1b",
+        model_path: str = "./qwen3-1.7b",
         reward_seed: Optional[int] = None,
+        reward_model_path: Optional[str] = None,
+        reward_base_model_path: str = "./qwen3-1.7b",
     ):
         self.llm = AliceLLMEngine(model_path=model_path)
-        self.reward_model = RandomRewardModel(seed=reward_seed)
+        if reward_model_path:
+            self.reward_model = TrainedRewardModel(
+                model_path=reward_base_model_path,
+                adapter_path=reward_model_path,
+            )
+        else:
+            self.reward_model = RandomRewardModel(seed=reward_seed)
         self.sessions: Dict[str, ConversationSession] = {}
 
     def create_level(
